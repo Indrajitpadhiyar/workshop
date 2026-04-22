@@ -1,0 +1,6 @@
+/* Removed default styles, using Tailwind */
+body {
+  background-color: #f8fafc;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
