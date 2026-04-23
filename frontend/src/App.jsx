@@ -29,7 +29,7 @@ function App() {
   };
 
   // Simple routing using the window location
-  const isAdminRoute = window.location.pathname.startsWith('/admin');
+  const isAdminRoute = window.location.pathname.startsWith('https://workshop-hz2c.onrender.com/admin'|| '/admin');
 
   if (isAdminRoute) {
     return (
