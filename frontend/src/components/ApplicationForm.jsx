@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { User, Mail, Send, Briefcase } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import DragDropZone from './DragDropZone';
 
 export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
@@ -21,11 +22,12 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!resumeFile) {
-      alert('Please upload your resume to continue.');
+      toast.error('Please upload your resume to continue.');
       return;
     }
 
     setIsSubmitting(true);
+    const loadingToast = toast.loading('Registering your application...');
 
     try {
       const data = new FormData();
@@ -40,15 +42,18 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
         body: data,
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to register.');
+        throw new Error(responseData.error || responseData.message || 'Failed to register.');
       }
 
+      toast.success('Registration successful!', { id: loadingToast });
       setIsSubmitting(false);
       onSubmitSuccess(formData.firstName);
     } catch (error) {
       console.error(error);
-      alert('An error occurred during registration. Please try again.');
+      toast.error(error.message || 'An error occurred during registration.', { id: loadingToast });
       setIsSubmitting(false);
     }
   };

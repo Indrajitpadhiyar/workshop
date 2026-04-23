@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Search, Download, LogOut, FileText, Trash2, X } from 'lucide-react';
+import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle, AlertCircle } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard() {
     const [searchTerm, setSearchTerm] = useState('');
     const [applicants, setApplicants] = useState([]);
     const [selectedApplicant, setSelectedApplicant] = useState(null);
+    const [inviteLink, setInviteLink] = useState('https://chat.whatsapp.com/your-group-link');
+    const [isSending, setIsSending] = useState(false);
+    const [emailStatus, setEmailStatus] = useState('');
 
     useEffect(() => {
         const fetchApplicants = async () => {
@@ -13,7 +17,6 @@ export default function AdminDashboard() {
                 const response = await fetch('http://localhost:4000/api/applicants');
                 if (response.ok) {
                     const data = await response.json();
-                    // Map MongoDB _id to id, and format dates if needed
                     const processedData = data.map(app => ({
                         id: app._id,
                         firstName: app.firstName,
@@ -27,6 +30,7 @@ export default function AdminDashboard() {
                 }
             } catch (error) {
                 console.error('Failed to fetch applicants:', error);
+                toast.error('Failed to load applicants.');
             }
         };
 
@@ -35,18 +39,20 @@ export default function AdminDashboard() {
 
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this registration?')) {
+            const deleteToast = toast.loading('Deleting registration...');
             try {
                 const response = await fetch(`http://localhost:4000/api/applicants/${id}`, {
                     method: 'DELETE',
                 });
                 if (response.ok) {
                     setApplicants(applicants.filter(app => app.id !== id));
+                    toast.success('Registration deleted successfully.', { id: deleteToast });
                 } else {
-                    alert('Failed to delete registration.');
+                    toast.error('Failed to delete registration.', { id: deleteToast });
                 }
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('An error occurred while deleting.');
+                toast.error('An error occurred while deleting.', { id: deleteToast });
             }
         }
     };
@@ -55,6 +61,33 @@ export default function AdminDashboard() {
         (app.firstName + ' ' + app.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
         app.email.toLowerCase().includes(searchTerm.toLowerCase())
     );
+
+    const handleSendInvite = async () => {
+        setIsSending(true);
+        setEmailStatus('');
+        try {
+            const message = `Hello ${selectedApplicant.firstName},\n\nYou have been selected! Please join our group using the link below:\n\n${inviteLink}\n\nBest regards,\nWorkshop Team`;
+            const response = await fetch('http://localhost:4000/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    to: selectedApplicant.email,
+                    subject: 'Workshop Group Invitation',
+                    message
+                })
+            });
+
+            if (response.ok) {
+                setEmailStatus('success');
+            } else {
+                setEmailStatus('error');
+            }
+        } catch (error) {
+            console.error('Send email error:', error);
+            setEmailStatus('error');
+        }
+        setIsSending(false);
+    };
 
     return (
         <>
@@ -181,7 +214,7 @@ export default function AdminDashboard() {
                 <motion.div
                     initial={{ opacity: 0, scale: 0.95, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
-                    className="w-full max-w-4xl max-h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+                    className="w-[95vw] max-w-6xl h-[90vh] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
                 >
                     <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
                         <h2 className="text-xl font-bold text-slate-800">Applicant Profile</h2>
@@ -190,9 +223,9 @@ export default function AdminDashboard() {
                         </button>
                     </div>
                     
-                    <div className="flex flex-col md:flex-row flex-1 overflow-hidden min-h-[500px]">
+                    <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
                         {/* Left side: Info */}
-                        <div className="w-full md:w-1/3 p-6 border-r border-slate-100 bg-white overflow-y-auto">
+                        <div className="w-full md:w-72 lg:w-80 p-6 border-r border-slate-100 bg-white overflow-y-auto flex-shrink-0">
                             <div className="flex flex-col items-center mb-6">
                                 <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-3xl shadow-lg mb-4">
                                     {selectedApplicant.firstName.charAt(0)}{selectedApplicant.lastName.charAt(0)}
@@ -210,17 +243,54 @@ export default function AdminDashboard() {
                                     <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Registration Date</p>
                                     <p className="text-slate-800 font-medium">{selectedApplicant.date}</p>
                                 </div>
-                                <div className="pt-4 flex justify-center">
-                                    <a href={selectedApplicant.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-600/20">
+                                <div className="pt-2 flex flex-col gap-3">
+                                    <a href={selectedApplicant.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-medium transition-colors border border-blue-100">
                                         <Download size={18} />
                                         Download Resume
                                     </a>
+                                </div>
+
+                                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 mt-4">
+                                    <p className="text-xs text-blue-800 font-semibold uppercase tracking-wider mb-2">Send Group Invite</p>
+                                    <p className="text-xs text-slate-500 mb-3">Send a pre-written invitation to <strong>{selectedApplicant.email}</strong>.</p>
+                                    <input 
+                                        type="text" 
+                                        value={inviteLink}
+                                        onChange={(e) => setInviteLink(e.target.value)}
+                                        placeholder="Group Link (e.g., WhatsApp, Discord)"
+                                        className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                                    />
+                                    <button 
+                                        onClick={handleSendInvite}
+                                        disabled={isSending}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-600/20"
+                                    >
+                                        {isSending ? (
+                                            <span className="animate-pulse">Sending...</span>
+                                        ) : (
+                                            <>
+                                                <Send size={16} />
+                                                Send Invite
+                                            </>
+                                        )}
+                                    </button>
+
+                                    {emailStatus === 'success' && (
+                                        <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 p-2 rounded-lg border border-green-100">
+                                            <CheckCircle size={14} /> Email sent successfully!
+                                        </div>
+                                    )}
+                                    {emailStatus === 'error' && (
+                                        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                                            <AlertCircle size={14} /> Failed to send email. Check setup.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
                         
                         {/* Right side: Resume Preview */}
-                        <div className="w-full md:w-2/3 bg-slate-100 flex flex-col p-4 overflow-hidden">
+                        <div className="flex-1 bg-slate-100 flex flex-col p-4 overflow-hidden">
                             <p className="text-sm font-semibold text-slate-500 mb-2 uppercase tracking-wider">Resume Preview</p>
                             <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
                                 {selectedApplicant.resumeUrl ? (

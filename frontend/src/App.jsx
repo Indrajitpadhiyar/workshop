@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Toaster } from 'react-hot-toast';
 import Background from './components/Background';
 import ApplicationForm from './components/ApplicationForm';
 import SuccessScreen from './components/SuccessScreen';
@@ -31,11 +32,17 @@ function App() {
   const isAdminRoute = window.location.pathname.startsWith('/admin');
 
   if (isAdminRoute) {
-    return <Admin />;
+    return (
+      <>
+        <Toaster position="top-center" />
+        <Admin />
+      </>
+    );
   }
 
   return (
     <div className="min-h-screen relative flex items-center justify-center p-4 bg-slate-50 text-slate-800 font-sans overflow-hidden">
+      <Toaster position="top-center" />
       <Background />
 
       <motion.div
