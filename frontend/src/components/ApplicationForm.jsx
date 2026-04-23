@@ -37,7 +37,7 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
       data.append('position', formData.position);
       data.append('resume', resumeFile);
 
-      const response = await fetch('http://localhost:4000/api/register', {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/register`, {
         method: 'POST',
         body: data,
       });

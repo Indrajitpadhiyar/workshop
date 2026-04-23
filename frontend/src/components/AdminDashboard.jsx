@@ -14,7 +14,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         const fetchApplicants = async () => {
             try {
-                const response = await fetch('http://localhost:4000/api/applicants');
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/applicants`);
                 if (response.ok) {
                     const data = await response.json();
                     const processedData = data.map(app => ({
@@ -41,7 +41,7 @@ export default function AdminDashboard() {
         if (window.confirm('Are you sure you want to delete this registration?')) {
             const deleteToast = toast.loading('Deleting registration...');
             try {
-                const response = await fetch(`http://localhost:4000/api/applicants/${id}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/applicants/${id}`, {
                     method: 'DELETE',
                 });
                 if (response.ok) {
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
         setEmailStatus('');
         try {
             const message = `Hello ${selectedApplicant.firstName},\n\nYou have been selected! Please join our group using the link below:\n\n${inviteLink}\n\nBest regards,\nWorkshop Team`;
-            const response = await fetch('http://localhost:4000/api/send-email', {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/send-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
