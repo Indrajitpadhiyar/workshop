@@ -18,7 +18,7 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Serve frontend static files
-const frontendDistPath = path.join(__dirname, "../frontend/dist");
+const frontendDistPath = path.join(__dirname, "dist");
 app.use(express.static(frontendDistPath));
 
 // API routes
