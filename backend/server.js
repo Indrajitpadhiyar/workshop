@@ -16,7 +16,18 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Serve frontend static files
+const frontendDistPath = path.join(__dirname, "../frontend/dist");
+app.use(express.static(frontendDistPath));
+
+// API routes
 app.use("/api", applicantRoutes);
+
+// SPA fallback - serve index.html for all non-API routes
+app.get("*", (req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+});
 
 const PORT = process.env.PORT || 4000;
 
