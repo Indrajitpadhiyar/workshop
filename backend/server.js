@@ -48,7 +48,7 @@ app.get("/api/health", (req, res) => {
 });
 
 // Catch unknown API routes and return JSON
-app.all("/api/(.*)", (req, res) => {
+app.all("/api/:any*", (req, res) => {
     res.status(404).json({ error: `Route ${req.method} ${req.url} not found` });
 });
 
