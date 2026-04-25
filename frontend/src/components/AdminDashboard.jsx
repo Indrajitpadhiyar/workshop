@@ -4,6 +4,7 @@ import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle
 import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard() {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || '';
     const [searchTerm, setSearchTerm] = useState('');
     const [applicants, setApplicants] = useState([]);
     const [selectedApplicant, setSelectedApplicant] = useState(null);
@@ -14,7 +15,7 @@ export default function AdminDashboard() {
     useEffect(() => {
         const fetchApplicants = async () => {
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/applicants`);
+                const response = await fetch(`${apiBaseUrl}/api/applicants`);
                 if (response.ok) {
                     const data = await response.json();
                     const processedData = data.map(app => ({
@@ -41,7 +42,7 @@ export default function AdminDashboard() {
         if (window.confirm('Are you sure you want to delete this registration?')) {
             const deleteToast = toast.loading('Deleting registration...');
             try {
-                const response = await fetch(`${import.meta.env.VITE_API_URL}/api/applicants/${id}`, {
+                const response = await fetch(`${apiBaseUrl}/api/applicants/${id}`, {
                     method: 'DELETE',
                 });
                 if (response.ok) {
@@ -67,7 +68,7 @@ export default function AdminDashboard() {
         setEmailStatus('');
         try {
             const message = `Hello ${selectedApplicant.firstName},\n\nYou have been selected! Please join our group using the link below:\n\n${inviteLink}\n\nBest regards,\nWorkshop Team`;
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/api/send-email`, {
+            const response = await fetch(`${apiBaseUrl}/api/send-email`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({

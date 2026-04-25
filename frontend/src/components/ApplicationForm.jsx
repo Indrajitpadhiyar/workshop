@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import DragDropZone from './DragDropZone';
 
 export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
+  const apiBaseUrl = import.meta.env.VITE_API_URL || '';
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -37,7 +38,7 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
       data.append('position', formData.position);
       data.append('resume', resumeFile);
 
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/register`, {
+      const response = await fetch(`${apiBaseUrl}/api/register`, {
         method: 'POST',
         body: data,
       });
