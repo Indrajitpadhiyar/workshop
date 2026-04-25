@@ -43,7 +43,15 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
         body: data,
       });
 
-      const responseData = await response.json();
+      let responseData;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        responseData = await response.json();
+      } else {
+        const textData = await response.text();
+        console.error('Non-JSON response:', textData);
+        throw new Error(`Server error: Received unexpected response format. Status: ${response.status}`);
+      }
 
       if (!response.ok) {
         throw new Error(responseData.error || responseData.message || 'Failed to register.');
@@ -53,7 +61,7 @@ export default function ApplicationForm({ onSubmitSuccess, itemVariants }) {
       setIsSubmitting(false);
       onSubmitSuccess(formData.firstName);
     } catch (error) {
-      console.error(error);
+      console.error('Fetch error:', error);
       toast.error(error.message || 'An error occurred during registration.', { id: loadingToast });
       setIsSubmitting(false);
     }

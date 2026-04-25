@@ -16,7 +16,9 @@ export default function AdminDashboard() {
         const fetchApplicants = async () => {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/applicants`);
-                if (response.ok) {
+                const contentType = response.headers.get("content-type");
+                
+                if (response.ok && contentType && contentType.indexOf("application/json") !== -1) {
                     const data = await response.json();
                     const processedData = data.map(app => ({
                         id: app._id,
@@ -28,10 +30,14 @@ export default function AdminDashboard() {
                         resumeUrl: app.resumeUrl
                     }));
                     setApplicants(processedData);
+                } else {
+                    const errorText = await response.text();
+                    console.error('Fetch applicants failed:', response.status, errorText);
+                    toast.error(`Failed to load applicants: Server error ${response.status}`);
                 }
             } catch (error) {
                 console.error('Failed to fetch applicants:', error);
-                toast.error('Failed to load applicants.');
+                toast.error('Failed to load applicants. Network error.');
             }
         };
 
