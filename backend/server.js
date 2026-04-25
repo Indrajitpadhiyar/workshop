@@ -21,6 +21,12 @@ if (!fs.existsSync(uploadsDir)) {
 
 const app = express();
 
+// Request logger for debugging
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.url}`);
+    next();
+});
+
 app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -35,6 +41,16 @@ app.use(express.static(frontendDistPath));
 
 // API routes
 app.use("/api", applicantRoutes);
+
+// Health check
+app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", message: "Backend is running" });
+});
+
+// Catch unknown API routes and return JSON
+app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `Route ${req.method} ${req.url} not found` });
+});
 
 // SPA fallback - serve index.html for all non-API routes
 app.get(/^(?!\/api\/).*/, (req, res) => {
