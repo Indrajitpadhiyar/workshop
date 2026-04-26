@@ -4,7 +4,14 @@ import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle
 import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard({ onLogout }) {
-    const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+
+    // Resolve resumeUrl: if it's a relative path (e.g. /uploads/...) serve it from the backend
+    const resolveResumeUrl = (url) => {
+        if (!url) return null;
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        return `${apiBaseUrl}${url}`;
+    };
     const [searchTerm, setSearchTerm] = useState('');
     const [applicants, setApplicants] = useState([]);
     const [selectedApplicant, setSelectedApplicant] = useState(null);
@@ -411,7 +418,7 @@ export default function AdminDashboard({ onLogout }) {
                                                     <td className={`py-4 px-6 text-slate-500 text-sm ${isMobileView ? 'hidden' : ''}`}>{app.date}</td>
                                                     <td className="py-4 px-6 text-center">
                                                         <a 
-                                                            href={app.resumeUrl} 
+                                                            href={resolveResumeUrl(app.resumeUrl)} 
                                                             target="_blank" 
                                                             rel="noopener noreferrer" 
                                                             onClick={(e) => e.stopPropagation()}
@@ -548,7 +555,7 @@ export default function AdminDashboard({ onLogout }) {
                                     <p className="text-slate-800 font-medium">{selectedApplicant.date}</p>
                                 </div>
                                 <div className="pt-2 flex flex-col gap-3">
-                                    <a href={selectedApplicant.resumeUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-medium transition-colors border border-blue-100">
+                                    <a href={resolveResumeUrl(selectedApplicant.resumeUrl)} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-xl font-medium transition-colors border border-blue-100">
                                         <Download size={18} />
                                         Download Resume
                                     </a>
@@ -624,7 +631,7 @@ export default function AdminDashboard({ onLogout }) {
                             <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden relative">
                                 {selectedApplicant.resumeUrl ? (
                                     <iframe 
-                                        src={selectedApplicant.resumeUrl} 
+                                        src={resolveResumeUrl(selectedApplicant.resumeUrl)} 
                                         className="w-full h-full border-0 absolute inset-0"
                                         title="Resume Preview"
                                     />
