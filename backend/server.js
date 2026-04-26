@@ -4,6 +4,7 @@ import { connectDB } from "./src/config/db.js";
 import path from "path";
 import { fileURLToPath } from "url";
 import applicantRoutes from "./src/routes/applicant.routes.js";
+import adminRoutes from "./src/routes/admin.routes.js";
 import fs from "fs";
 import cors from "cors";
 
@@ -52,6 +53,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // API routes
 app.use("/api", applicantRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/api/health", (req, res) => {
   res.status(200).json({

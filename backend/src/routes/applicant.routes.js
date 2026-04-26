@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import path from 'path';
 import { registerApplicant, getApplicants, deleteApplicant, sendInviteEmail } from '../controllers/applicant.controller.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
@@ -19,8 +20,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 router.post('/register', upload.single('resume'), registerApplicant);
-router.get('/applicants', getApplicants);
-router.delete('/applicants/:id', deleteApplicant);
-router.post('/send-email', sendInviteEmail);
+router.get('/applicants', authMiddleware, getApplicants);
+router.delete('/applicants/:id', authMiddleware, deleteApplicant);
+router.post('/send-email', authMiddleware, sendInviteEmail);
 
 export default router;

@@ -6,14 +6,31 @@ export default function AdminLogin({ onLogin }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
-    const handleSubmit = (e) => {
+    const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        // Check password from environment variables
-        if (password === import.meta.env.VITE_ADMIN_PASSWORD) {
-            onLogin();
-        } else {
-            setError('Incorrect password. Please try again.');
-            setPassword('');
+        setError('');
+        
+        try {
+            const response = await fetch(`${apiBaseUrl}/api/admin/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.token) {
+                localStorage.setItem('adminToken', data.token);
+                onLogin(data.token);
+            } else {
+                setError(data.message || 'Incorrect password. Please try again.');
+                setPassword('');
+            }
+        } catch (error) {
+            console.error('Login error:', error);
+            setError('Server error. Please try again later.');
         }
     };
 

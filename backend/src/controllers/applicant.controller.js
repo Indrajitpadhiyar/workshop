@@ -13,6 +13,13 @@ export const registerApplicant = async (req, res) => {
         const { firstName, lastName, email, position } = req.body;
         console.log('Registering applicant:', { firstName, lastName, email, position });
 
+        // Check for duplicate email
+        const existingApplicant = await Applicant.findOne({ email });
+        if (existingApplicant) {
+            console.error('Registration failed: Email already exists');
+            return res.status(400).json({ message: 'You have already registered with this email.' });
+        }
+
         if (!req.file) {
             console.error('Registration failed: No resume file provided');
             return res.status(400).json({ message: 'Resume is required.' });
