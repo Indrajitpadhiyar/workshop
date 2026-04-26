@@ -7,6 +7,7 @@ import applicantRoutes from "./src/routes/applicant.routes.js";
 import adminRoutes from "./src/routes/admin.routes.js";
 import fs from "fs";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use(
   }),
 );
 
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

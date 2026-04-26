@@ -145,3 +145,27 @@ export const sendInviteEmail = async (req, res) => {
         res.status(500).json({ message: 'Failed to send email. Ensure EMAIL_USER and EMAIL_PASS are set correctly.' });
     }
 };
+
+// Update applicant status (Select/Approve)
+export const updateApplicantStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+        console.log('Update Status Request:', { id, status });
+
+        if (!['pending', 'selected'].includes(status)) {
+            return res.status(400).json({ message: 'Invalid status' });
+        }
+
+        const applicant = await Applicant.findByIdAndUpdate(id, { status }, { new: true });
+        
+        if (!applicant) {
+            return res.status(404).json({ message: 'Applicant not found' });
+        }
+
+        res.status(200).json({ message: `Applicant ${status === 'selected' ? 'selected' : 'unselected'} successfully`, applicant });
+    } catch (error) {
+        console.error('Update status error:', error);
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
+};

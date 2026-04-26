@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle, AlertCircle, Bell, Smartphone } from 'lucide-react';
+import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle, AlertCircle, Bell, Smartphone, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 export default function AdminDashboard({ onLogout }) {
@@ -13,17 +13,22 @@ export default function AdminDashboard({ onLogout }) {
     const [emailStatus, setEmailStatus] = useState('');
     const [activeTab, setActiveTab] = useState('applicants');
     const [isMobileView, setIsMobileView] = useState(false);
-    const [notifications, setNotifications] = useState([
-        { id: 1, title: 'New Registration', message: 'Indrajit Padhiyar just registered for Web Developer position.', time: '5m ago', read: false },
-        { id: 2, title: 'System Update', message: 'The registration form has been updated to include mobile view.', time: '1h ago', read: true },
-    ]);
+    const [deferredPrompt, setDeferredPrompt] = useState(null);
+    const [notifications, setNotifications] = useState(() => {
+        const saved = localStorage.getItem('notifications');
+        return saved ? JSON.parse(saved) : [];
+    });
 
     useEffect(() => {
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            setDeferredPrompt(e);
+        });
+
         const fetchApplicants = async () => {
             try {
-                const token = localStorage.getItem('adminToken');
                 const response = await fetch(`${apiBaseUrl}/api/applicants`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
                 const contentType = response.headers.get("content-type");
                 
@@ -35,6 +40,7 @@ export default function AdminDashboard({ onLogout }) {
                         lastName: app.lastName,
                         email: app.email,
                         position: app.position,
+                        status: app.status || 'pending',
                         date: new Date(app.createdAt).toLocaleDateString(),
                         resumeUrl: app.resumeUrl
                     }));
@@ -54,16 +60,49 @@ export default function AdminDashboard({ onLogout }) {
         };
 
         fetchApplicants();
-    }, []);
+
+        const interval = setInterval(fetchApplicants, 10000); // Poll every 10s for 'real-time'
+        return () => clearInterval(interval);
+    }, [apiBaseUrl, onLogout]);
+
+    const handleRefresh = () => {
+        const fetchApplicants = async () => {
+            const fetchToast = toast.loading('Refreshing data...');
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/applicants`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const processedData = data.map(app => ({
+                        id: app._id,
+                        firstName: app.firstName,
+                        lastName: app.lastName,
+                        email: app.email,
+                        position: app.position,
+                        status: app.status || 'pending',
+                        date: new Date(app.createdAt).toLocaleDateString(),
+                        resumeUrl: app.resumeUrl
+                    }));
+                    setApplicants(processedData);
+                    toast.success('Data updated.', { id: fetchToast });
+                } else {
+                    toast.error('Refresh failed.', { id: fetchToast });
+                }
+            } catch (error) {
+                toast.error('Network error.', { id: fetchToast });
+            }
+        };
+        fetchApplicants();
+    };
 
     const handleDelete = async (id) => {
         if (window.confirm('Are you sure you want to delete this registration?')) {
             const deleteToast = toast.loading('Deleting registration...');
             try {
-                const token = localStorage.getItem('adminToken');
                 const response = await fetch(`${apiBaseUrl}/api/applicants/${id}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
                 if (response.ok) {
                     setApplicants(applicants.filter(app => app.id !== id));
@@ -78,6 +117,37 @@ export default function AdminDashboard({ onLogout }) {
         }
     };
 
+    const handleStatusUpdate = async (id, newStatus) => {
+        const cleanId = id?.toString().trim();
+        if (!cleanId) {
+            console.error('No ID provided for status update');
+            toast.error('Invalid applicant data.');
+            return;
+        }
+        console.log('Updating status for id:', cleanId, 'to:', newStatus);
+        const url = `${apiBaseUrl}/api/applicants/status/${cleanId}`;
+        console.log('Update URL:', url);
+        const statusToast = toast.loading(newStatus === 'selected' ? 'Selecting applicant...' : 'Moving back to pending...');
+        try {
+            const response = await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (response.ok) {
+                setApplicants(applicants.map(app => app.id === id ? { ...app, status: newStatus } : app));
+                toast.success(newStatus === 'selected' ? 'Applicant selected!' : 'Applicant moved to pending.', { id: statusToast });
+            } else {
+                const errorData = await response.json();
+                toast.error(errorData.message || 'Failed to update status.', { id: statusToast });
+            }
+        } catch (error) {
+            console.error('Status update error:', error);
+            toast.error('An error occurred.', { id: statusToast });
+        }
+    };
+
     const filteredApplicants = applicants.filter(app =>
         (app.firstName + ' ' + app.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
         app.email.toLowerCase().includes(searchTerm.toLowerCase())
@@ -88,13 +158,12 @@ export default function AdminDashboard({ onLogout }) {
         setEmailStatus('');
         try {
             const message = `Hello ${selectedApplicant.firstName},\n\nYou have been selected! Please join our group using the link below:\n\n${inviteLink}\n\nBest regards,\nWorkshop Team`;
-            const token = localStorage.getItem('adminToken');
             const response = await fetch(`${apiBaseUrl}/api/send-email`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                    'Content-Type': 'application/json'
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     to: selectedApplicant.email,
                     subject: 'Workshop Group Invitation',
@@ -104,6 +173,13 @@ export default function AdminDashboard({ onLogout }) {
 
             if (response.ok) {
                 setEmailStatus('success');
+                toast.success('Invitation sent successfully!');
+                
+                // Close modal after a small delay
+                setTimeout(() => {
+                    setSelectedApplicant(null);
+                    setEmailStatus('');
+                }, 1500);
             } else {
                 setEmailStatus('error');
             }
@@ -113,6 +189,58 @@ export default function AdminDashboard({ onLogout }) {
         }
         setIsSending(false);
     };
+
+    const playNotificationSound = () => {
+        const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        audio.play().catch(e => console.error("Audio play failed:", e));
+    };
+
+    const handleInstallApp = async () => {
+        if (deferredPrompt) {
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+            if (outcome === 'accepted') {
+                setDeferredPrompt(null);
+            }
+        }
+    };
+
+    // Effect for real-time notifications
+    useEffect(() => {
+        const lastSeenId = localStorage.getItem('lastSeenApplicantId');
+        if (applicants.length > 0) {
+            const latestApplicant = applicants[0]; // Assuming sorted by createdAt: -1
+            
+            if (lastSeenId && latestApplicant.id !== lastSeenId) {
+                // Check if this applicant is truly new (not just re-fetched)
+                // We compare the ID of the latest applicant
+                const newApplicants = applicants.filter(app => {
+                    // This is a bit tricky with polling, so we compare with the ID we stored
+                    return app.id === latestApplicant.id; 
+                });
+
+                if (newApplicants.length > 0) {
+                    playNotificationSound();
+                    toast.success(`New Registration: ${latestApplicant.firstName}!`, { icon: '🔔' });
+                    
+                    // Add to notifications list
+                    const newNotif = {
+                        id: Date.now(),
+                        title: 'New Registration',
+                        message: `${latestApplicant.firstName} ${latestApplicant.lastName} registered for ${latestApplicant.position}.`,
+                        time: 'Just now',
+                        read: false
+                    };
+                    setNotifications(prev => {
+                        const updated = [newNotif, ...prev];
+                        localStorage.setItem('notifications', JSON.stringify(updated.slice(0, 20))); // Keep last 20
+                        return updated;
+                    });
+                }
+            }
+            localStorage.setItem('lastSeenApplicantId', latestApplicant.id);
+        }
+    }, [applicants]);
 
     return (
         <>
@@ -152,10 +280,28 @@ export default function AdminDashboard({ onLogout }) {
                         title="Notifications"
                     >
                         <Bell size={20} />
-                        {notifications.some(n => !n.read) && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
+                        {notifications.filter(n => !n.read).length > 0 && (
+                            <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full border-2 border-white flex items-center justify-center">
+                                {notifications.filter(n => !n.read).length}
+                            </span>
                         )}
                         <span className="hidden md:inline text-sm font-medium">Notifications</span>
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab('selected')}
+                        className={`p-2 rounded-lg border transition-all flex items-center gap-2 relative ${activeTab === 'selected' ? 'bg-green-600 text-white border-green-600' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                        title="Selected Users"
+                    >
+                        <CheckCircle2 size={20} />
+                        <span className="hidden md:inline text-sm font-medium">Selected</span>
+                    </button>
+                    <div className="w-[1px] h-8 bg-slate-200 mx-1 hidden sm:block"></div>
+                    <button 
+                        onClick={handleRefresh}
+                        className="p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors"
+                        title="Refresh Data"
+                    >
+                        <RefreshCw size={20} />
                     </button>
                     <div className="w-[1px] h-8 bg-slate-200 mx-1 hidden sm:block"></div>
                     <button 
@@ -166,6 +312,16 @@ export default function AdminDashboard({ onLogout }) {
                         <Smartphone size={20} />
                         <span className="hidden md:inline text-sm font-medium">Mobile View</span>
                     </button>
+                    {deferredPrompt && (
+                        <button 
+                            onClick={handleInstallApp}
+                            className="p-2 px-4 bg-gradient-to-tr from-blue-600 to-indigo-600 text-white rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 transition-all flex items-center gap-2 border border-blue-400/30"
+                            title="Install as Mobile App"
+                        >
+                            <Smartphone size={20} />
+                            <span className="hidden md:inline text-sm font-bold">Set as Mobile App</span>
+                        </button>
+                    )}
                     <button onClick={onLogout} className="p-2 bg-red-50 text-red-600 rounded-lg border border-red-100 hover:bg-red-100 transition-colors flex items-center gap-2" title="Log Out">
                         <LogOut size={20} />
                         <span className="hidden md:inline text-sm font-medium">Logout</span>
@@ -175,7 +331,7 @@ export default function AdminDashboard({ onLogout }) {
 
             {/* Content Area */}
             <div className="flex-1 overflow-auto p-8 bg-slate-50/50">
-                {activeTab === 'applicants' ? (
+                {(activeTab === 'applicants' || activeTab === 'selected') ? (
                     <div className="flex flex-col gap-6">
                         {/* Search and Filter Bar */}
                         {!isMobileView && (
@@ -184,15 +340,20 @@ export default function AdminDashboard({ onLogout }) {
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                                     <input
                                         type="text"
-                                        placeholder="Search participants..."
+                                        placeholder={`Search ${activeTab}...`}
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                                     />
                                 </div>
-                                <button className="p-2 bg-slate-50 text-slate-600 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors flex items-center gap-2 text-sm font-medium">
-                                    <Download size={18} /> Export
-                                </button>
+                                <div className="flex items-center gap-3">
+                                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+                                        {activeTab === 'applicants' ? 'Pending Applications' : 'Selected Candidates'}
+                                    </h2>
+                                    <div className="px-2 py-1 bg-slate-100 rounded-md text-xs font-bold text-slate-600">
+                                        {applicants.filter(a => activeTab === 'applicants' ? a.status === 'pending' : a.status === 'selected').length}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -206,12 +367,23 @@ export default function AdminDashboard({ onLogout }) {
                                             <th className="py-4 px-6">Position</th>
                                             <th className={`py-4 px-6 ${isMobileView ? 'hidden' : ''}`}>Date</th>
                                             <th className="py-4 px-6 text-center">Resume</th>
+                                            <th className="py-4 px-6 text-center">Status</th>
                                             <th className="py-4 px-6 text-center">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100">
-                                        {filteredApplicants.length > 0 ? (
-                                            filteredApplicants.map((app, index) => (
+                                        {(activeTab === 'applicants' ? applicants.filter(a => a.status === 'pending') : applicants.filter(a => a.status === 'selected'))
+                                            .filter(app => 
+                                                (app.firstName + ' ' + app.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                app.email.toLowerCase().includes(searchTerm.toLowerCase())
+                                            )
+                                            .length > 0 ? (
+                                            (activeTab === 'applicants' ? applicants.filter(a => a.status === 'pending') : applicants.filter(a => a.status === 'selected'))
+                                            .filter(app => 
+                                                (app.firstName + ' ' + app.lastName).toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                                app.email.toLowerCase().includes(searchTerm.toLowerCase())
+                                            )
+                                            .map((app, index) => (
                                                 <motion.tr
                                                     initial={{ opacity: 0, y: 10 }}
                                                     animate={{ opacity: 1, y: 0 }}
@@ -222,7 +394,7 @@ export default function AdminDashboard({ onLogout }) {
                                                 >
                                                     <td className="py-4 px-6">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0">
+                                                            <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${app.status === 'selected' ? 'from-green-500 to-emerald-400' : 'from-blue-500 to-cyan-400'} flex items-center justify-center text-white font-bold text-xs shadow-sm flex-shrink-0`}>
                                                                 {app.firstName.charAt(0)}{app.lastName.charAt(0)}
                                                             </div>
                                                             <div className="truncate">
@@ -232,7 +404,7 @@ export default function AdminDashboard({ onLogout }) {
                                                     </td>
                                                     <td className={`py-4 px-6 text-slate-600 font-medium ${isMobileView ? 'hidden' : ''}`}>{app.email}</td>
                                                     <td className="py-4 px-6">
-                                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-tight">
+                                                        <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-[10px] font-bold border uppercase tracking-tight ${app.status === 'selected' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>
                                                             {app.position}
                                                         </span>
                                                     </td>
@@ -253,6 +425,18 @@ export default function AdminDashboard({ onLogout }) {
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
+                                                                handleStatusUpdate(app.id, app.status === 'selected' ? 'pending' : 'selected');
+                                                            }}
+                                                            className={`p-2 rounded-lg transition-colors inline-flex ${app.status === 'selected' ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-slate-400 hover:text-green-600 hover:bg-green-50'}`}
+                                                            title={app.status === 'selected' ? "Unselect" : "Approve/Select"}
+                                                        >
+                                                            <CheckCircle2 size={18} />
+                                                        </button>
+                                                    </td>
+                                                    <td className="py-4 px-6 text-center">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 handleDelete(app.id);
                                                             }}
                                                             className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors inline-flex" 
@@ -265,8 +449,8 @@ export default function AdminDashboard({ onLogout }) {
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={isMobileView ? "4" : "6"} className="py-12 text-center text-slate-500 font-medium">
-                                                    No participants found matching your search.
+                                                <td colSpan={isMobileView ? "5" : "7"} className="py-12 text-center text-slate-500 font-medium">
+                                                    No participants found in this section.
                                                 </td>
                                             </tr>
                                         )}
@@ -370,39 +554,64 @@ export default function AdminDashboard({ onLogout }) {
                                     </a>
                                 </div>
 
-                                <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 mt-4">
-                                    <p className="text-xs text-blue-800 font-semibold uppercase tracking-wider mb-2">Send Group Invite</p>
-                                    <p className="text-xs text-slate-500 mb-3">Send a pre-written invitation to <strong>{selectedApplicant.email}</strong>.</p>
-                                    <input 
-                                        type="text" 
-                                        value={inviteLink}
-                                        onChange={(e) => setInviteLink(e.target.value)}
-                                        placeholder="Group Link (e.g., WhatsApp, Discord)"
-                                        className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                                    />
-                                    <button 
-                                        onClick={handleSendInvite}
-                                        disabled={isSending}
-                                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-medium transition-colors shadow-lg shadow-blue-600/20"
-                                    >
-                                        {isSending ? (
-                                            <span className="animate-pulse">Sending...</span>
-                                        ) : (
-                                            <>
-                                                <Send size={16} />
-                                                Send Invite
-                                            </>
-                                        )}
-                                    </button>
-
-                                    {emailStatus === 'success' && (
-                                        <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 p-2 rounded-lg border border-green-100">
-                                            <CheckCircle size={14} /> Email sent successfully!
+                                <div className="mt-6">
+                                    {selectedApplicant.status === 'pending' ? (
+                                        <div className="space-y-3">
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2">Manage Candidate</p>
+                                            <button
+                                                onClick={() => {
+                                                    handleStatusUpdate(selectedApplicant.id, 'selected');
+                                                    setSelectedApplicant(null);
+                                                }}
+                                                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-tr from-green-600 to-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-green-500/20 hover:shadow-green-500/40 transition-all hover:-translate-y-0.5"
+                                            >
+                                                <CheckCircle2 size={20} />
+                                                Select Candidate
+                                            </button>
+                                            <p className="text-[10px] text-slate-400 text-center leading-tight">Selecting will move this candidate to the Selected section for further action.</p>
                                         </div>
-                                    )}
-                                    {emailStatus === 'error' && (
-                                        <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
-                                            <AlertCircle size={14} /> Failed to send email. Check setup.
+                                    ) : (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <div className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                                                    <Send size={14} />
+                                                </div>
+                                                <p className="text-xs text-blue-800 font-bold uppercase tracking-wider">Invitation Link</p>
+                                            </div>
+                                            
+                                            <input 
+                                                type="text" 
+                                                value={inviteLink}
+                                                onChange={(e) => setInviteLink(e.target.value)}
+                                                placeholder="WhatsApp Group Link"
+                                                className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                                            />
+
+                                            <button 
+                                                onClick={handleSendInvite}
+                                                disabled={isSending || !inviteLink}
+                                                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-white transition-all shadow-lg ${isSending || !inviteLink ? 'bg-slate-300 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20 hover:-translate-y-0.5'}`}
+                                            >
+                                                {isSending ? (
+                                                    <span className="animate-pulse">Sending...</span>
+                                                ) : (
+                                                    <>
+                                                        <Send size={18} />
+                                                        Send Invite
+                                                    </>
+                                                )}
+                                            </button>
+
+                                            {emailStatus === 'success' && (
+                                                <div className="mt-3 flex items-center gap-1.5 text-xs text-green-600 bg-green-50 p-2 rounded-lg border border-green-100">
+                                                    <CheckCircle size={14} /> Email sent successfully!
+                                                </div>
+                                            )}
+                                            {emailStatus === 'error' && (
+                                                <div className="mt-3 flex items-center gap-1.5 text-xs text-red-600 bg-red-50 p-2 rounded-lg border border-red-100">
+                                                    <AlertCircle size={14} /> Failed to send email. Check setup.
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>

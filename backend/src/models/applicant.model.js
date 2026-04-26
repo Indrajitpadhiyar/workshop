@@ -20,6 +20,11 @@ const applicantSchema = new mongoose.Schema({
     resumeUrl: {
         type: String,
         required: true, // Will store Cloudinary URL
+    },
+    status: {
+        type: String,
+        enum: ['pending', 'selected'],
+        default: 'pending'
     }
 }, { timestamps: true });
 

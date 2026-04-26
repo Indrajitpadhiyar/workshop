@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion'
-import { Lock, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Lock, ArrowRight, ShieldCheck, Users, AlertCircle } from 'lucide-react';
 
 export default function AdminLogin({ onLogin }) {
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
@@ -16,16 +17,16 @@ export default function AdminLogin({ onLogin }) {
             const response = await fetch(`${apiBaseUrl}/api/admin/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
+                credentials: 'include',
+                body: JSON.stringify({ email, password })
             });
             
             const data = await response.json();
             
-            if (response.ok && data.token) {
-                localStorage.setItem('adminToken', data.token);
-                onLogin(data.token);
+            if (response.ok) {
+                onLogin();
             } else {
-                setError(data.message || 'Incorrect password. Please try again.');
+                setError(data.message || 'Invalid credentials. Please try again.');
                 setPassword('');
             }
         } catch (error) {
@@ -44,14 +45,32 @@ export default function AdminLogin({ onLogin }) {
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-900 text-white mb-6 shadow-lg shadow-slate-500/30">
                     <ShieldCheck size={28} />
                 </div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Admin Access</h2>
-                <p className="text-slate-500 text-sm">Enter the master password to view workshop registrations.</p>
+                <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Admin Login</h2>
+                <p className="text-slate-500 text-sm">Enter your credentials to access the workshop dashboard.</p>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email Address</label>
                     <div className="relative group">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-500 transition-colors">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
+                            <Users size={18} />
+                        </div>
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 shadow-sm"
+                            placeholder="admin@example.com"
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Password</label>
+                    <div className="relative group">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                             <Lock size={18} />
                         </div>
                         <input
@@ -63,21 +82,22 @@ export default function AdminLogin({ onLogin }) {
                             }}
                             required
                             className="block w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 shadow-sm"
-                            placeholder="Enter password..."
+                            placeholder="••••••••"
                         />
                     </div>
-                    {error && (
-                        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-500 text-sm font-medium mt-2 pl-1">
-                            {error}
-                        </motion.p>
-                    )}
                 </div>
+
+                {error && (
+                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-red-500 text-sm font-medium mt-2 pl-1 bg-red-50 p-2 rounded-lg border border-red-100 flex items-center gap-2">
+                        <AlertCircle size={16} /> {error}
+                    </motion.p>
+                )}
 
                 <button
                     type="submit"
-                    className="group relative w-full flex justify-center items-center gap-2 py-3 px-6 border border-transparent text-base font-semibold rounded-xl text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 shadow-xl shadow-slate-900/20 transform transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
+                    className="group relative w-full flex justify-center items-center gap-2 py-3 px-6 border border-transparent text-base font-semibold rounded-xl text-white bg-slate-900 hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 shadow-xl shadow-slate-900/20 transform transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 mt-2"
                 >
-                    Access Dashboard
+                    Sign In
                     <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform duration-300" />
                 </button>
             </form>

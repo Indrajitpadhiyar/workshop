@@ -9,33 +9,35 @@ export default function Admin() {
 
     useEffect(() => {
         const checkAuth = async () => {
-            const token = localStorage.getItem('adminToken');
-            if (token) {
-                try {
-                    const response = await fetch(`${apiBaseUrl}/api/admin/verify`, {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
-                    if (response.ok) {
-                        setIsAuthenticated(true);
-                    } else {
-                        localStorage.removeItem('adminToken');
-                    }
-                } catch (error) {
-                    console.error('Auth verification failed:', error);
-                    localStorage.removeItem('adminToken');
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/admin/verify`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    setIsAuthenticated(true);
                 }
+            } catch (error) {
+                console.error('Auth verification failed:', error);
             }
         };
         checkAuth();
     }, [apiBaseUrl]);
 
-    const handleLogin = (token) => {
+    const handleLogin = () => {
         setIsAuthenticated(true);
     };
 
-    const handleLogout = () => {
-        localStorage.removeItem('adminToken');
-        setIsAuthenticated(false);
+    const handleLogout = async () => {
+        try {
+            await fetch(`${apiBaseUrl}/api/admin/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            setIsAuthenticated(false);
+        } catch (error) {
+            console.error('Logout failed:', error);
+            setIsAuthenticated(false);
+        }
     };
 
     return (

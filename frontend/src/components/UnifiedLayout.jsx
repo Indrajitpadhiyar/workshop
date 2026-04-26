@@ -7,9 +7,35 @@ import SuccessScreen from './SuccessScreen';
 import { Shield, UserPlus, ArrowLeft } from 'lucide-react';
 
 export default function UnifiedLayout() {
-    const [view, setView] = useState('selection'); // 'selection', 'admin', 'register'
+    const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+    const [view, setView] = useState(() => localStorage.getItem('activeView') || 'selection');
     const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
     const [successData, setSuccessData] = useState(null);
+    const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
+
+    // Persist view
+    React.useEffect(() => {
+        localStorage.setItem('activeView', view);
+    }, [view]);
+
+    // Check auth on mount
+    React.useEffect(() => {
+        const checkAuth = async () => {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/admin/verify`, {
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    setIsAdminAuthenticated(true);
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+            } finally {
+                setIsInitialCheckDone(true);
+            }
+        };
+        checkAuth();
+    }, [apiBaseUrl]);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -31,6 +57,11 @@ export default function UnifiedLayout() {
 
     return (
         <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 relative overflow-hidden p-4">
+            {!isInitialCheckDone && (
+                <div className="fixed inset-0 z-[100] bg-white flex items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+            )}
             {/* Background elements */}
             <div className="absolute top-0 left-0 w-full h-full -z-0">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-100/50 rounded-full blur-3xl" />
