@@ -13,31 +13,48 @@ const __dirname = path.dirname(__filename);
 
 const uploadsDir = path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 const app = express();
 
 app.use((req, res, next) => {
-    console.log(`${req.method} ${req.url}`);
-    next();
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+// Handle CORS preflight BEFORE routes
+app.use((req, res, next) => {
+  if (req.method === "OPTIONS") {
+    const origin = req.headers.origin;
+    res.setHeader("Access-Control-Allow-Origin", origin || "*");
+    res.setHeader(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+    );
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "X-Requested-With, Content-Type, Authorization, Accept, Origin",
+    );
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    return res.status(200).end();
+  }
+  next();
 });
 
 app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-        res.setHeader('Access-Control-Allow-Origin', origin);
-    } else {
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-    res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type, Authorization, Accept, Origin');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    next();
+  const origin = req.headers.origin;
+  res.setHeader("Access-Control-Allow-Origin", origin || "*");
+  res.setHeader(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+  );
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "X-Requested-With, Content-Type, Authorization, Accept, Origin",
+  );
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  next();
 });
 
 app.use(express.json());
@@ -52,25 +69,25 @@ app.use("/api", applicantRoutes);
 
 // Health check
 app.get("/api/health", (req, res) => {
-    res.json({ status: "ok", message: "Backend is running" });
+  res.json({ status: "ok", message: "Backend is running" });
 });
 
 // Catch unknown API routes
 app.use("/api", (req, res) => {
-    res.status(404).json({
-        error: `Route ${req.method} ${req.originalUrl} not found`
-    });
+  res.status(404).json({
+    error: `Route ${req.method} ${req.originalUrl} not found`,
+  });
 });
 
 // SPA fallback
 app.get(/^(?!\/api\/).*/, (req, res) => {
-    res.sendFile(path.join(frontendDistPath, "index.html"));
+  res.sendFile(path.join(frontendDistPath, "index.html"));
 });
 
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
 
 connectDB();
