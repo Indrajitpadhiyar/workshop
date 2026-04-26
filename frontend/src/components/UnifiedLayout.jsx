@@ -4,38 +4,106 @@ import ApplicationForm from './ApplicationForm';
 import AdminLogin from './AdminLogin';
 import AdminDashboard from './AdminDashboard';
 import SuccessScreen from './SuccessScreen';
-import { Shield, UserPlus, ArrowLeft } from 'lucide-react';
+import { Shield, UserPlus, ArrowLeft, Clock } from 'lucide-react';
+
+// Helper: localStorage se auth check karo (expiry ke saath)
+const getLocalAuth = () => {
+    try {
+        const expiresAt = localStorage.getItem('adminTokenExpiry');
+        if (!expiresAt) return false;
+        return new Date(expiresAt) > new Date(); // abhi bhi valid hai?
+    } catch {
+        return false;
+    }
+};
+
+const clearLocalAuth = () => {
+    localStorage.removeItem('adminTokenExpiry');
+};
 
 export default function UnifiedLayout() {
     const apiBaseUrl = import.meta.env.VITE_API_URL || '';
     const [view, setView] = useState(() => localStorage.getItem('activeView') || 'selection');
-    const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+    // localStorage se initial state lo — fast, no flicker
+    const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(getLocalAuth);
+    const [tokenExpiresAt, setTokenExpiresAt] = useState(() => localStorage.getItem('adminTokenExpiry'));
     const [successData, setSuccessData] = useState(null);
-    const [isInitialCheckDone, setIsInitialCheckDone] = useState(false);
+    const [isInitialCheckDone, setIsInitialCheckDone] = useState(getLocalAuth()); // already logged in? skip loader
 
     // Persist view
     React.useEffect(() => {
         localStorage.setItem('activeView', view);
     }, [view]);
 
-    // Check auth on mount
+    // Mount pe server se auth verify karo (cookie valid hai ya nahi)
     React.useEffect(() => {
+        // Agar localStorage mein already expired hai toh server check skip karo
+        if (!getLocalAuth()) {
+            clearLocalAuth();
+            setIsAdminAuthenticated(false);
+            setIsInitialCheckDone(true);
+            return;
+        }
+
         const checkAuth = async () => {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/admin/verify`, {
                     credentials: 'include'
                 });
                 if (response.ok) {
+                    const data = await response.json();
                     setIsAdminAuthenticated(true);
+                    // Server se mili expiry update karo (agar alag hai)
+                    if (data.expiresAt) {
+                        localStorage.setItem('adminTokenExpiry', data.expiresAt);
+                        setTokenExpiresAt(data.expiresAt);
+                    }
+                } else {
+                    // Cookie invalid/expired — cleanup karo
+                    clearLocalAuth();
+                    setIsAdminAuthenticated(false);
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
+                // Network error par locally cached state rakho
             } finally {
                 setIsInitialCheckDone(true);
             }
         };
         checkAuth();
     }, [apiBaseUrl]);
+
+    // Login success handler
+    const handleLoginSuccess = (expiresAt) => {
+        setIsAdminAuthenticated(true);
+        if (expiresAt) {
+            localStorage.setItem('adminTokenExpiry', expiresAt);
+            setTokenExpiresAt(expiresAt);
+        }
+    };
+
+    // Logout handler
+    const handleAdminLogout = async () => {
+        try {
+            await fetch(`${apiBaseUrl}/api/admin/logout`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+        } catch (e) {
+            console.error('Logout error:', e);
+        }
+        clearLocalAuth();
+        setIsAdminAuthenticated(false);
+        setTokenExpiresAt(null);
+    };
+
+    // Remaining session time (days)
+    const getSessionDaysLeft = () => {
+        if (!tokenExpiresAt) return null;
+        const diff = new Date(tokenExpiresAt) - new Date();
+        if (diff <= 0) return null;
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    };
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -140,11 +208,18 @@ export default function UnifiedLayout() {
 
                         {!isAdminAuthenticated ? (
                             <div className="flex-1 flex items-center justify-center">
-                                <AdminLogin onLogin={() => setIsAdminAuthenticated(true)} />
+                                <AdminLogin onLogin={handleLoginSuccess} />
                             </div>
                         ) : (
                             <div className="flex-1 bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
-                                <AdminDashboard />
+                                {/* Session info bar */}
+                                {getSessionDaysLeft() && (
+                                    <div className="flex items-center gap-2 px-6 py-2 bg-emerald-50 border-b border-emerald-100 text-emerald-700 text-xs font-semibold">
+                                        <Clock size={13} />
+                                        <span>Session valid for <strong>{getSessionDaysLeft()} more day{getSessionDaysLeft() !== 1 ? 's' : ''}</strong> — auto-logout hoga {new Date(tokenExpiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} ko</span>
+                                    </div>
+                                )}
+                                <AdminDashboard onLogout={handleAdminLogout} />
                             </div>
                         )}
                     </motion.div>

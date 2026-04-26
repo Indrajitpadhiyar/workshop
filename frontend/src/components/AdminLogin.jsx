@@ -24,7 +24,8 @@ export default function AdminLogin({ onLogin }) {
             const data = await response.json();
             
             if (response.ok) {
-                onLogin();
+                // expiresAt parent ko pass karo taaki localStorage mein save ho
+                onLogin(data.expiresAt || null);
             } else {
                 setError(data.message || 'Invalid credentials. Please try again.');
                 setPassword('');
