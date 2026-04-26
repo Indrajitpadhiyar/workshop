@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { Users, Search, Download, LogOut, FileText, Trash2, X, Send, CheckCircle, AlertCircle, Bell, Smartphone, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+// Helper: localStorage se token nikal ke Authorization header banao
+const getAuthHeaders = () => {
+    const token = localStorage.getItem('adminToken');
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+};
+
 export default function AdminDashboard({ onLogout }) {
     const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
@@ -35,7 +41,8 @@ export default function AdminDashboard({ onLogout }) {
         const fetchApplicants = async () => {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/applicants`, {
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: { ...getAuthHeaders() }
                 });
                 const contentType = response.headers.get("content-type");
                 
@@ -77,7 +84,8 @@ export default function AdminDashboard({ onLogout }) {
             const fetchToast = toast.loading('Refreshing data...');
             try {
                 const response = await fetch(`${apiBaseUrl}/api/applicants`, {
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: { ...getAuthHeaders() }
                 });
                 if (response.ok) {
                     const data = await response.json();
@@ -109,7 +117,8 @@ export default function AdminDashboard({ onLogout }) {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/applicants/${id}`, {
                     method: 'DELETE',
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: { ...getAuthHeaders() }
                 });
                 if (response.ok) {
                     setApplicants(applicants.filter(app => app.id !== id));
@@ -138,7 +147,7 @@ export default function AdminDashboard({ onLogout }) {
         try {
             const response = await fetch(url, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                 credentials: 'include',
                 body: JSON.stringify({ status: newStatus })
             });
@@ -168,7 +177,8 @@ export default function AdminDashboard({ onLogout }) {
             const response = await fetch(`${apiBaseUrl}/api/send-email`, {
                 method: 'POST',
                 headers: { 
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    ...getAuthHeaders()
                 },
                 credentials: 'include',
                 body: JSON.stringify({

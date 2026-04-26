@@ -21,6 +21,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 const app = express();
 
+// Render/Heroku jaise platforms pe nginx reverse proxy hota hai
+// trust proxy: 1 se req.secure sahi kaam karta hai, secure cookies chalti hain
+app.set('trust proxy', 1);
+
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();

@@ -19,18 +19,21 @@ export const adminLogin = async (req, res) => {
                 { expiresIn: `${TOKEN_EXPIRY_DAYS}d` } // 7 days
             );
 
-            // HTTP-only cookie: browser auto-send karta hai — CSRF safe
+            // Cookie bhi set karo (same-origin pe kaam karega)
             res.cookie('adminToken', token, {
                 httpOnly: true,
-                secure: process.env.NODE_ENV === 'production', // HTTPS pe true
-                sameSite: 'lax',
-                maxAge: TOKEN_EXPIRY_MS // 7 days in milliseconds
+                secure: true,
+                sameSite: 'none',  // cross-origin ke liye zaroori
+                maxAge: TOKEN_EXPIRY_MS
             });
 
+            // Token response mein bhi return karo — yahi MAIN solution hai
+            // Frontend ise localStorage mein save karega aur Authorization header se bhejega
             return res.status(200).json({
                 success: true,
                 message: 'Login successful',
-                expiresAt,             // frontend ke liye expiry time
+                token,                 // <-- YEH HAI MAIN FIX — token response mein
+                expiresAt,
                 tokenDays: TOKEN_EXPIRY_DAYS
             });
         } else {
@@ -45,8 +48,8 @@ export const adminLogin = async (req, res) => {
 export const logoutAdmin = (req, res) => {
     res.clearCookie('adminToken', {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax'
+        secure: true,
+        sameSite: 'none'
     });
     res.status(200).json({ success: true, message: 'Logged out successfully' });
 };

@@ -24,7 +24,10 @@ export default function AdminLogin({ onLogin }) {
             const data = await response.json();
             
             if (response.ok) {
-                // expiresAt parent ko pass karo taaki localStorage mein save ho
+                // Token localStorage mein save karo — Render pe cookies fail hoti hain
+                if (data.token) {
+                    localStorage.setItem('adminToken', data.token);
+                }
                 onLogin(data.expiresAt || null);
             } else {
                 setError(data.message || 'Invalid credentials. Please try again.');

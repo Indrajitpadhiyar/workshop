@@ -6,38 +6,51 @@ import AdminDashboard from './AdminDashboard';
 import SuccessScreen from './SuccessScreen';
 import { Shield, UserPlus, ArrowLeft, Clock } from 'lucide-react';
 
-// Helper: localStorage se auth check karo (expiry ke saath)
+// ===== AUTH HELPERS — localStorage based (Render pe cookies fail hoti hain) =====
+
+const getStoredToken = () => localStorage.getItem('adminToken') || null;
+
 const getLocalAuth = () => {
     try {
+        const token = getStoredToken();
         const expiresAt = localStorage.getItem('adminTokenExpiry');
-        if (!expiresAt) return false;
-        return new Date(expiresAt) > new Date(); // abhi bhi valid hai?
+        if (!token || !expiresAt) return false;
+        return new Date(expiresAt) > new Date();
     } catch {
         return false;
     }
 };
 
 const clearLocalAuth = () => {
+    localStorage.removeItem('adminToken');
     localStorage.removeItem('adminTokenExpiry');
+};
+
+// Har authenticated request ke liye — Authorization header builder
+const getAuthHeaders = () => {
+    const token = getStoredToken();
+    const headers = {};
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
 };
 
 export default function UnifiedLayout() {
     const apiBaseUrl = import.meta.env.VITE_API_URL || '';
     const [view, setView] = useState(() => localStorage.getItem('activeView') || 'selection');
-    // localStorage se initial state lo — fast, no flicker
     const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(getLocalAuth);
     const [tokenExpiresAt, setTokenExpiresAt] = useState(() => localStorage.getItem('adminTokenExpiry'));
     const [successData, setSuccessData] = useState(null);
-    const [isInitialCheckDone, setIsInitialCheckDone] = useState(getLocalAuth()); // already logged in? skip loader
+    const [isInitialCheckDone, setIsInitialCheckDone] = useState(getLocalAuth());
 
     // Persist view
     React.useEffect(() => {
         localStorage.setItem('activeView', view);
     }, [view]);
 
-    // Mount pe server se auth verify karo (cookie valid hai ya nahi)
+    // Mount pe server se auth verify karo
     React.useEffect(() => {
-        // Agar localStorage mein already expired hai toh server check skip karo
         if (!getLocalAuth()) {
             clearLocalAuth();
             setIsAdminAuthenticated(false);
@@ -48,24 +61,24 @@ export default function UnifiedLayout() {
         const checkAuth = async () => {
             try {
                 const response = await fetch(`${apiBaseUrl}/api/admin/verify`, {
-                    credentials: 'include'
+                    credentials: 'include',
+                    headers: {
+                        ...getAuthHeaders()   // <-- Authorization header bhi bhejo
+                    }
                 });
                 if (response.ok) {
                     const data = await response.json();
                     setIsAdminAuthenticated(true);
-                    // Server se mili expiry update karo (agar alag hai)
                     if (data.expiresAt) {
                         localStorage.setItem('adminTokenExpiry', data.expiresAt);
                         setTokenExpiresAt(data.expiresAt);
                     }
                 } else {
-                    // Cookie invalid/expired — cleanup karo
                     clearLocalAuth();
                     setIsAdminAuthenticated(false);
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
-                // Network error par locally cached state rakho
             } finally {
                 setIsInitialCheckDone(true);
             }
@@ -87,7 +100,10 @@ export default function UnifiedLayout() {
         try {
             await fetch(`${apiBaseUrl}/api/admin/logout`, {
                 method: 'POST',
-                credentials: 'include'
+                credentials: 'include',
+                headers: {
+                    ...getAuthHeaders()
+                }
             });
         } catch (e) {
             console.error('Logout error:', e);
