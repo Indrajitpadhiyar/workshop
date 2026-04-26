@@ -5,6 +5,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import applicantRoutes from "./src/routes/applicant.routes.js";
 import fs from "fs";
+import cors from "cors";
 
 dotenv.config();
 
@@ -23,71 +24,69 @@ app.use((req, res, next) => {
   next();
 });
 
-// Handle CORS preflight BEFORE routes
-app.use((req, res, next) => {
-  if (req.method === "OPTIONS") {
-    const origin = req.headers.origin;
-    res.setHeader("Access-Control-Allow-Origin", origin || "*");
-    res.setHeader(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-    );
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "X-Requested-With, Content-Type, Authorization, Accept, Origin",
-    );
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    return res.status(200).end();
-  }
-  next();
-});
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  res.setHeader("Access-Control-Allow-Origin", origin || "*");
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, OPTIONS, PATCH",
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "X-Requested-With, Content-Type, Authorization, Accept, Origin",
-  );
-  res.setHeader("Access-Control-Allow-Credentials", "true");
-  next();
-});
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-const frontendDistPath = path.join(__dirname, "dist");
-app.use(express.static(frontendDistPath));
 
 // API routes
 app.use("/api", applicantRoutes);
 
-// Health check
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", message: "Backend is running" });
+  res.status(200).json({
+    success: true,
+    status: "ok",
+    message: "Backend is running",
+  });
 });
 
-// Catch unknown API routes
 app.use("/api", (req, res) => {
   res.status(404).json({
+    success: false,
     error: `Route ${req.method} ${req.originalUrl} not found`,
   });
 });
 
-// SPA fallback
-app.get(/^(?!\/api\/).*/, (req, res) => {
-  res.sendFile(path.join(frontendDistPath, "index.html"));
-});
+// Frontend serve only if dist exists
+const frontendDistPath = path.join(__dirname, "dist");
+
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(path.join(frontendDistPath, "index.html"));
+  });
+}
 
 const PORT = process.env.PORT || 4000;
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-connectDB();
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+    });
+  })
+  .catch((error) => {
+    console.log("Database connection failed:", error);
+  });
